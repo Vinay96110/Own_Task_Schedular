@@ -19,6 +19,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+
+
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
@@ -39,8 +41,12 @@
 #define SCHED_STACK_START        ( (SRAM_END) - (5 * SIZE_TASK_STACK) )
 
 
+#define TICK_HZ 1000U
+
+#define SYSTICK_TIM_CLK   		16000000U   // AHB M7 datasheet
 
 
+void init_systick_timer(uint32_t tick_hz);
 
 
 void task1_handler(void);
@@ -50,8 +56,9 @@ void task4_handler(void);
 
 int main(void)
 {
-    /* Loop forever */
+
 	printf("Namaste Duniya\n");
+	init_systick_timer(TICK_HZ);
 	for(;;);
 }
 
@@ -86,4 +93,31 @@ void task4_handler(void)
 	{
 		printf("Task-4");
 	}
+}
+
+
+void init_systick_timer(uint32_t tick_hz)
+{
+	uint32_t *pSRVR = (uint32_t*)0xE000E014;  //systick reload value register got in M7
+	uint32_t *pSCSR = (uint32_t*)0xE000E010;  //systick current value register
+
+
+    uint32_t count_value = (SYSTICK_TIM_CLK/tick_hz)-1;
+
+    *pSRVR &= ~(0x00FFFFFFFF);
+    *pSRVR |= count_value;
+
+
+    *pSCSR |= ( 1 << 1); //Enables SysTick exception request:
+    *pSCSR |= ( 1 << 2);  //Indicates the clock source, processor clock source
+    *pSCSR |= ( 1 << 0); //enables the counter
+
+
+}
+
+
+void SysTick_Handler(void)
+{
+	printf("Hi");
+
 }

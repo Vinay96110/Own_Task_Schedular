@@ -1,0 +1,38 @@
+// Need to verify this 
+
+
+void init_systick_timer(uint32_t tick_hz)
+{
+	uint32_t *pSRVR = (uint32_t*)0xE000E014;  //systick reload value register got in M7
+	uint32_t *pSCSR = (uint32_t*)0xE000E010;  //systick current value register
+
+
+/*	volatile uint32_t *SYST_CSR  = (uint32_t *)0xE000E010; // CTRL
+	volatile uint32_t *SYST_RVR  = (uint32_t *)0xE000E014; // LOAD
+	volatile uint32_t *SYST_CVR  = (uint32_t *)0xE000E018; // VAL
+
+	uint32_t count_value = (SYSTICK_TIM_CLK / tick_hz) - 1;
+
+	//uint32_t count_value = (SystemCoreClock / tick_hz) - 1;
+
+	*SYST_RVR = count_value; // Set reload value
+	*SYST_CVR = 0;           // Clear current value
+
+	    // CTRL: ENABLE=1, TICKINT=1, CLKSOURCE=1 (AHB)
+	*SYST_CSR = (1 << 0) | (1 << 1) | (1 << 2);*/
+
+
+    uint32_t count_value = (SYSTICK_TIM_CLK/tick_hz)-1;
+
+    *pSRVR &= ~(0x00FFFFFFFF);
+    *pSRVR |= count_value;
+
+    //do some settings
+    *pSCSR |= ( 1 << 1); //Enables SysTick exception request:
+    *pSCSR |= ( 1 << 2);  //Indicates the clock source, processor clock source
+
+
+    *pSCSR |= ( 1 << 0); //enables the counter
+
+
+}
