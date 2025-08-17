@@ -33,34 +33,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := Task_Schedular
+BUILD_ARTIFACT_NAME := My_Task_Schedular
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-Task_Schedular.elf \
+My_Task_Schedular.elf \
 
 MAP_FILES += \
-Task_Schedular.map \
+My_Task_Schedular.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-Task_Schedular.list \
+My_Task_Schedular.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: Task_Schedular.elf secondary-outputs
+main-build: My_Task_Schedular.elf secondary-outputs
 
 # Tool invocations
-Task_Schedular.elf Task_Schedular.map: $(OBJS) $(USER_OBJS) C:\task-schedular\Task_Schedular\STM32F767ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Task_Schedular.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\task-schedular\Task_Schedular\STM32F767ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Task_Schedular.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+My_Task_Schedular.elf My_Task_Schedular.map: $(OBJS) $(USER_OBJS) C:\task-schedular\My_Task_Schedular\STM32F767ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "My_Task_Schedular.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\task-schedular\My_Task_Schedular\STM32F767ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="My_Task_Schedular.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -69,14 +69,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-Task_Schedular.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "Task_Schedular.list"
+My_Task_Schedular.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "My_Task_Schedular.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) Task_Schedular.elf Task_Schedular.list Task_Schedular.map default.size.stdout
+	-$(RM) My_Task_Schedular.elf My_Task_Schedular.list My_Task_Schedular.map default.size.stdout
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

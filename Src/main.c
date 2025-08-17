@@ -44,7 +44,9 @@
 #define TICK_HZ 1000U
 
 #define SYSTICK_TIM_CLK   		16000000U   // AHB M7 datasheet
-
+#define MAX_TASKS   4
+#define DUMMY_XPSR     0x00100000
+uint32_t current_task = 0;   // task 1 running
 
 void init_systick_timer(uint32_t tick_hz);
 
@@ -53,12 +55,38 @@ void task1_handler(void);
 void task2_handler(void);
 void task3_handler(void);
 void task4_handler(void);
+__attribute__((naked)) void Init_Schedular_Stack(uint32_t Schedule_top_of_stack);
+void Init_Tasks_Stack(void );
+void Enable_Processor_Faults(void);
+uint32_t get_psp_value(void);
+__attribute__((naked))  void Switch_SP_PSP(void);
+
+uint32_t psp_of_tasks[MAX_TASKS] = { T1_STACK_START, T2_STACK_START, T3_STACK_START, T4_STACK_START};
+
+uint32_t task_handlers[MAX_TASKS];
 
 int main(void)
 {
 
 	printf("Namaste Duniya\n");
-	init_systick_timer(TICK_HZ);
+
+	// Enable Processor faults
+	Enable_Processor_Faults();
+	Init_Schedular_Stack(SCHED_STACK_START);                   // 1. Initialised schedular stack i.e. MSP
+
+	task_handlers[0] = (uint32_t) task1_handler;
+	task_handlers[1] = (uint32_t) task2_handler;
+	task_handlers[2] = (uint32_t) task3_handler;
+	task_handlers[3] = (uint32_t) task4_handler;
+
+	Init_Tasks_Stack();// Dummy SF's                           //2. TAsks Stack Initit
+
+	init_systick_timer(TICK_HZ);                              //SYsTick
+
+	Switch_SP_PSP();
+
+	task1_handler();
+
 	for(;;);
 }
 
@@ -116,8 +144,187 @@ void init_systick_timer(uint32_t tick_hz)
 }
 
 
-void SysTick_Handler(void)
+__attribute__((naked)) void Init_Schedular_Stack(uint32_t Schedule_top_of_stack)
 {
-	printf("Hi");
+	//Change MSP so use Inline func and made naked fucntion
+    __asm volatile("MSR MSP,%0": :  "r" (Schedule_top_of_stack)  :   );
+    __asm volatile("BX LR");
 
+}
+
+
+void Enable_Processor_Faults(void)
+{
+uint32_t *pSHCSR = (uint32_t*)0xE000ED24;
+
+*pSHCSR |= ( 1 << 16); //mem manage
+*pSHCSR |= ( 1 << 17); //bus fault
+*pSHCSR |= ( 1 << 18); //usage fault
+}
+
+
+void Init_Tasks_Stack(void )
+{
+	uint32_t *pPSP;
+	for (int i=0; i<MAX_TASKS; i++)
+	{
+		pPSP = (uint32_t*)psp_of_tasks[i];
+
+		pPSP --;
+		*pPSP = DUMMY_XPSR;   //0x00100000
+
+
+		pPSP --;  //FOR PC
+		*pPSP = task_handlers[i]; // verify the adress should be Thumb odd adress one
+
+		pPSP --;  //FOR LR
+		*pPSP = 0xFFFFFFFD;   //0x00100000
+
+
+		for (int j=0; j<13; j++)
+		{
+			pPSP --;
+			*pPSP = 0;
+		}
+
+		psp_of_tasks[i] = (uint32_t) pPSP;
+
+	}
+
+}
+
+
+uint32_t get_psp_value(void)
+{
+	return psp_of_tasks[current_task];
+}
+
+
+
+void save_psp_value (uint32_t current_psp_val)
+{
+	psp_of_tasks[current_task] = current_psp_val;
+}
+
+
+void update_next_task(void)
+{
+	current_task++;
+	current_task = current_task % MAX_TASKS;   // RR
+}
+
+
+__attribute__((naked))  void Switch_SP_PSP(void)
+{
+
+	// 1. init PSP with Task 1 stack start address
+
+	//get the values of PSP of current task
+	__asm volatile ("PUSH {LR}");          // Preveserve LR to connect back to main
+	__asm volatile ("BL get_psp_value");  // return stores in R0
+	__asm volatile ("MSR PSP, R0");   // PSP Initialisation
+	__asm volatile ("POP {LR}");      // POPS back LR Value
+
+
+	//2. Change SP to PSP using Control Reg
+	__asm volatile ("MOV R0, #0x02");
+	__asm volatile ("MSR CONTROL,R0");
+	__asm volatile ("BX LR");     // LR to PC connects us back to main
+
+}
+
+
+__attribute__((naked)) void SysTick_Handler(void)
+{
+    // Save context of current task
+	//1.  Get current running task's psp value
+	__asm volatile ("MRS R0, PSP");
+	//2. Using that PSP value store SF2 (R4 to R11)  can not use PUSH instruction here
+	__asm volatile("STMDB R0!,{R4-R11}");  // ! -> R0 gets updated each time
+
+
+	__asm volatile ("PUSH {LR}");  // LR was crasing before so added here to verify it
+	//3. Save current value to PSP
+	__asm volatile("BL save_psp_value");
+
+
+
+	// Retrive context of next task
+	//1. Decide Next task to run
+	__asm volatile("BL update_next_task");
+	//2. get it's past psp value
+	__asm volatile ("BL get_psp_value");  // return stores in R0
+	//3. Using that PSP value retrive SF2 (R4 to R11) data movement from memory to reg (need to check)
+	__asm volatile ("LDMIA R0!,{R4-R11}");
+	//4. update PSP and Exit
+	__asm volatile ("MSR PSP, R0");
+
+	__asm volatile ("POP {LR}");
+	__asm volatile ("BX LR");
+
+
+	 __asm volatile (
+	        // ------------------ SAVE CONTEXT ------------------
+	        "MRS R0, PSP                \n" // Get current PSP
+	        "STMDB R0!, {R4-R11}        \n" // Save R4-R11 on task stack
+	        "BL   save_psp_value        \n" // Store updated PSP for current task
+
+	        // ------------------ SWITCH TASK -------------------
+	        "BL   update_next_task      \n" // Decide next task
+	        "BL   get_psp_value         \n" // Get PSP of next task (into R0)
+
+	        // ------------------ RESTORE CONTEXT ----------------
+	        "LDMIA R0!, {R4-R11}        \n" // Restore R4-R11
+	        "MSR   PSP, R0              \n" // Update PSP
+
+	        // ------------------ RETURN TO THREAD ----------------
+	        "BX LR                      \n" // Exception return will restore rest
+	    );
+
+}
+
+/*__attribute__((naked)) void SysTick_Handler(void)
+{
+    __asm volatile(
+        // Preserve EXC_RETURN (LR) *before* any BL (which overwrites LR)
+        "PUSH  {lr}                  \n" // save EXC_RETURN on MSP (handler stack)
+
+        // ------------------ SAVE CONTEXT OF CURRENT TASK ------------------
+        "MRS   r0, psp               \n" // r0 = current PSP
+        "STMDB r0!, {r4-r11}         \n" // save R4..R11 to current task stack
+        "BL    save_psp_value        \n" // save updated PSP (r0) for current task
+
+        // ------------------ PICK NEXT TASK ------------------
+        "BL    update_next_task      \n"
+        "BL    get_psp_value         \n" // r0 = next task PSP
+
+        // ------------------ RESTORE CONTEXT OF NEXT TASK ------------------
+        "LDMIA r0!, {r4-r11}         \n" // restore R4..R11
+        "MSR   psp, r0               \n" // update PSP
+
+        // ------------------ RETURN USING ORIGINAL EXC_RETURN ----------------
+        "POP   {lr}                  \n" // restore EXC_RETURN
+        "BX    lr                    \n" // exception return to Thread mode (uses PSP)
+    );
+}*/
+
+
+
+void HardFault_Handler(void)
+{
+	printf("Exception : Hardfault\n");
+	while(1);
+}
+
+
+void MemManage_Handler(void)
+{
+	printf("Exception : MemManage\n");
+	while(1);
+}
+
+void BusFault_Handler(void)
+{
+	printf("Exception : BusFault\n");
+	while(1);
 }
