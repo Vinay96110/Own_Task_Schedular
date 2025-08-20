@@ -1,5 +1,6 @@
-# Own_Task_Schedular
+# My_Task_Schedular
 Task Schedular from Scratch 
+
 
 # Creating my own schedular 3 ways 
 1. Via Systick Hanlder switch to other task (Initial)
@@ -12,3 +13,6 @@ Task Schedular from Scratch
 2. LDMIA, STMDB, ! - assembly 
 3. SP to MSP switch need to verify 
 4. LR is showing Junk Value (In systick Handler execution -- may causing default handler )
+
+# Board used for developemnt of this project 
+* STM32F439ZI - Coretx M4 
