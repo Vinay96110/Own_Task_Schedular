@@ -12,3 +12,6 @@ Task Schedular from Scratch
 2. LDMIA, STMDB, ! - assembly 
 3. SP to MSP switch need to verify 
 4. LR is showing Junk Value (In systick Handler execution -- may causing default handler )
+
+# Board used for this project
+STM32F767ZI  -- Contex M7 
